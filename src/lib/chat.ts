@@ -90,13 +90,14 @@ export async function runChat(
   const refuse = (): ChatResult => ({ answer: REFUSAL, citations: [], grounded: false, refused: true });
   if (!relevant || !useful.length) return refuse();
 
-  const sources: Source[] = useful.map((h, i) => ({
+  const sources: (Source & { raw: string })[] = useful.map((h, i) => ({
     n: i + 1,
     url: h.chunk.url,
     title: h.chunk.title,
     text: sanitizeSource(h.chunk.content).text,
+    raw: h.chunk.content,
   }));
-  const block = sources.map((s) => `<source id="${s.n}" url="${s.url}">\n${s.text}\n</source>`).join("\n");
+  const block = sources.map((s) => `<source id="${s.n}" url="${s.url.replace(/[<>"&]/g, encodeURIComponent)}">\n${s.text}\n</source>`).join("\n");
   const messagesOut: Msg[] = [
     ...msgs.slice(0, -1),
     { role: "user", content: `<sources>\n${block}\n</sources>\n\nQuestion: ${last.content}` },
@@ -111,7 +112,7 @@ export async function runChat(
     refused: false,
     citations: used.map((orig, i) => {
       const s = sources[orig - 1];
-      return { n: i + 1, url: s.url, title: s.title, snippet: s.text.slice(0, 220) };
+      return { n: i + 1, url: s.url, title: s.title, snippet: s.raw.slice(0, 220) };
     }),
   };
 }

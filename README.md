@@ -32,7 +32,7 @@ Key design points:
 - **Hybrid retrieval**: cosine search plus BM25-lite keyword search, fused with Reciprocal Rank Fusion (`k=60`).
 - **No-context path**: a lexical-coverage / similarity gate refuses before the LLM is called; answers with no valid citation are also refused.
 - **Prompt-injection defence**: retrieved text is wrapped in `<source>` tags, instruction-like sentences are stripped, markup is escaped, the system prompt marks sources as untrusted data, and fabricated `[n]` markers are dropped.
-- **Crawler hygiene**: same-origin only, `robots.txt` (group matching, wildcards, longest match), page cap, global deadline, per-request timeout, size cap, basic SSRF guard.
+- **Crawler hygiene**: same-origin only, `robots.txt` (group matching, wildcards, longest match), page cap, global deadline, per-request timeout, per-page and total byte caps, SSRF guard (scheme/port/credentials, DNS-resolved IP blocklist re-checked on every redirect hop). Per-IP rate limits and body-size caps on the APIs.
 
 ## Quick start (demo mode, zero keys)
 
@@ -57,11 +57,13 @@ Embed an agent on any page:
 |---|---|---|
 | `DEMO_MODE` | `1` | `1`: hash embeddings + mock LLM. `0`: real providers |
 | `ANTHROPIC_API_KEY` | - | Chat model (required when `DEMO_MODE=0`) |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-5` | Chat model id |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Chat model id |
 | `EMBEDDINGS_PROVIDER` | `openai` | `openai` or `voyage` (both configured to 1024-d) |
 | `OPENAI_API_KEY` / `VOYAGE_API_KEY` | - | Key for the chosen embeddings provider |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | - | Use pgvector store (apply `supabase/schema.sql`); blank = in-memory |
 | `CRAWL_TIMEOUT_MS` | `40000` | Global crawl deadline |
+| `CRAWL_MAX_BYTES` | `20000000` | Total HTML bytes per ingest |
+| `INGEST_RATE_LIMIT` / `CHAT_RATE_LIMIT` | `5` per 10 min / `30` per min | Per-IP limits (in-memory, per instance) |
 | `ALLOW_PRIVATE_HOSTS` | `0` | Allow localhost/private targets (used by eval) |
 
 Deploy to Vercel by setting the variables above. Use Supabase in production: the in-memory store is per-process and does not persist across serverless instances.
@@ -88,8 +90,8 @@ Deploy to Vercel by setting the variables above. Use Supabase in production: the
 ## Limitations
 
 - JS-rendered (SPA) sites are not executed; only server-rendered HTML is read.
-- SSRF guard checks hostnames and IP literals only; it does not resolve DNS, so it is not rebinding-proof. Put the crawler behind an egress proxy for untrusted multi-tenant use.
-- No auth, rate limiting or agent ownership: agent ids are unguessable but public.
+- SSRF guard resolves DNS and checks every redirect hop, but a small DNS-rebinding window remains between lookup and connect. Put the crawler behind an egress proxy for untrusted multi-tenant use.
+- No auth or agent ownership: agent ids are unguessable but public. Rate limits are in-memory per instance (use Redis/Upstash for real multi-instance limits).
 - Keyword search loads all of an agent's chunks per query (fine for hundreds of pages, not for huge sites).
 - Switching embedding providers requires re-ingesting; chat refuses mismatched agents.
 - The injection filter is heuristic. It reduces risk and does not eliminate it.

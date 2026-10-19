@@ -68,10 +68,14 @@ export const openaiEmbedder = (key: string): Embedder => ({
 });
 
 export const voyageEmbedder = (key: string): Embedder => ({
-  name: "voyage-3-1024",
+  name: "voyage-3.5-1024",
   minCos: 0.4,
   embed: (texts) =>
     batched(texts, (input) =>
-      remote("https://api.voyageai.com/v1/embeddings", key, { model: "voyage-3", input }),
+      remote("https://api.voyageai.com/v1/embeddings", key, {
+        model: process.env.VOYAGE_EMBED_MODEL ?? "voyage-3.5",
+        input,
+        output_dimension: DIM,
+      }),
     ),
 });

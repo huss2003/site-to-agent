@@ -1,3 +1,5 @@
+import { readCapped, safeFetch } from "./safefetch";
+
 export interface Robots {
   allowed(path: string): boolean;
   sitemaps: string[];
@@ -44,8 +46,8 @@ export function parseRobots(txt: string, ua = "site-to-agent"): Robots {
 
 export async function fetchRobots(origin: string, headers: HeadersInit): Promise<Robots> {
   try {
-    const res = await fetch(`${origin}/robots.txt`, { headers, signal: AbortSignal.timeout(6000) });
-    if (res.ok) return parseRobots(await res.text());
+    const res = await safeFetch(`${origin}/robots.txt`, { headers, timeoutMs: 6000 });
+    if (res.ok) return parseRobots(await readCapped(res, 500_000));
     return res.status >= 500 ? DENY_ALL : ALLOW_ALL; // 4xx: no robots; 5xx: be conservative
   } catch {
     return ALLOW_ALL;

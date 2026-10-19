@@ -1,5 +1,8 @@
 import { extractPage } from "./extract";
 import { fetchRobots } from "./robots";
+import { assertPublicHost, assertPublicUrl, readCapped, safeFetch } from "./safefetch";
+
+export { assertPublicUrl };
 
 export interface Page {
   url: string;
@@ -17,17 +20,6 @@ const HEADERS = { "user-agent": UA, accept: "text/html,application/xhtml+xml,app
 const SKIP_EXT = /\.(png|jpe?g|gif|svg|webp|ico|pdf|zip|gz|css|js|json|xml|mp[34]|mov|woff2?|ttf)$/i;
 const CONCURRENCY = 4;
 
-/** Basic SSRF guard (no DNS resolution; see README limitations). */
-export function assertPublicUrl(u: URL) {
-  if (!/^https?:$/.test(u.protocol)) throw new Error("Only http(s) URLs are supported");
-  if (process.env.ALLOW_PRIVATE_HOSTS === "1") return;
-  const h = u.hostname.toLowerCase();
-  const priv =
-    h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") || h === "[::1]" ||
-    /^(127|10|0)\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
-  if (priv) throw new Error("Private or local addresses are not allowed");
-}
-
 export function normalizeUrl(href: string, base: string): string | null {
   try {
     const u = new URL(href, base);
@@ -40,8 +32,11 @@ export function normalizeUrl(href: string, base: string): string | null {
   }
 }
 
+const MAX_PAGE_BYTES = 2_000_000;
+const MAX_TOTAL_BYTES = Number(process.env.CRAWL_MAX_BYTES ?? 20_000_000);
+
 async function get(url: string, timeout = 8000) {
-  return fetch(url, { headers: HEADERS, redirect: "follow", signal: AbortSignal.timeout(timeout) });
+  return safeFetch(url, { headers: HEADERS, timeoutMs: timeout });
 }
 
 /** Read sitemap.xml (and robots-declared sitemaps), following one level of sitemap indexes. */
@@ -54,7 +49,7 @@ export async function readSitemaps(origin: string, declared: string[]): Promise<
     try {
       const res = await get(loc);
       if (!res.ok) return;
-      const xml = await res.text();
+      const xml = await readCapped(res, MAX_PAGE_BYTES);
       const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1].replace(/&amp;/g, "&"));
       if (/<sitemapindex/i.test(xml) && depth < 1) for (const l of locs.slice(0, 3)) await visit(l, depth + 1);
       else urls.push(...locs);
@@ -69,7 +64,7 @@ export async function readSitemaps(origin: string, declared: string[]): Promise<
 /** Same-origin crawl: sitemap URLs first, then BFS over links. Honours robots.txt, page cap and deadline. */
 export async function crawl(startUrl: string, opts: CrawlOpts) {
   const start = new URL(startUrl);
-  assertPublicUrl(start);
+  await assertPublicHost(start);
   const origin = start.origin;
   const deadline = Date.now() + opts.timeoutMs;
   const robots = await fetchRobots(origin, HEADERS);
@@ -79,7 +74,7 @@ export async function crawl(startUrl: string, opts: CrawlOpts) {
   const seen = new Set(queue);
   const enqueue = (href: string, base: string) => {
     const u = normalizeUrl(href, base);
-    if (u && new URL(u).origin === origin && !seen.has(u)) {
+    if (u && seen.size < 2000 && new URL(u).origin === origin && !seen.has(u)) {
       seen.add(u);
       queue.push(u);
     }
@@ -89,6 +84,7 @@ export async function crawl(startUrl: string, opts: CrawlOpts) {
   const pages: Page[] = [];
   const skippedRobots: string[] = [];
   let active = 0;
+  let bytes = 0;
 
   const visit = async (url: string) => {
     const u = new URL(url);
@@ -97,7 +93,8 @@ export async function crawl(startUrl: string, opts: CrawlOpts) {
       const res = await get(url);
       if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) return;
       if (new URL(res.url).origin !== origin) return;
-      const html = (await res.text()).slice(0, 2_000_000);
+      const html = await readCapped(res, MAX_PAGE_BYTES);
+      bytes += html.length;
       const ex = extractPage(html, res.url);
       ex.links.forEach((l) => enqueue(l, res.url));
       if (ex.text.length >= 80 && pages.length < opts.maxPages) {
@@ -110,7 +107,7 @@ export async function crawl(startUrl: string, opts: CrawlOpts) {
   };
 
   const worker = async () => {
-    while (pages.length < opts.maxPages && Date.now() < deadline) {
+    while (pages.length < opts.maxPages && Date.now() < deadline && bytes < MAX_TOTAL_BYTES) {
       const next = queue.shift();
       if (!next) {
         if (!active) return;

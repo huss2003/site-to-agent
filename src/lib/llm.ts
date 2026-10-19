@@ -19,7 +19,7 @@ export const anthropicLLM = (key: string): LLM => ({
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5",
+        model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
         max_tokens: 700,
         system,
         messages,
