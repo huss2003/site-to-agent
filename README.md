@@ -58,6 +58,7 @@ Embed an agent on any page:
 | `DEMO_MODE` | `1` | `1`: hash embeddings + mock LLM. `0`: real providers |
 | `ANTHROPIC_API_KEY` | - | Chat model (required when `DEMO_MODE=0`) |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Chat model id |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic-compatible endpoint (e.g. a local llama.cpp server) |
 | `EMBEDDINGS_PROVIDER` | `openai` | `openai` or `voyage` (both configured to 1024-d) |
 | `OPENAI_API_KEY` / `VOYAGE_API_KEY` | - | Key for the chosen embeddings provider |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | - | Use pgvector store (apply `supabase/schema.sql`); blank = in-memory |

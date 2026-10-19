@@ -15,7 +15,8 @@ export interface LLM {
 export const anthropicLLM = (key: string): LLM => ({
   name: "anthropic",
   async complete({ system, messages }) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const base = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "");
+    const res = await fetch(`${base}/v1/messages`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
