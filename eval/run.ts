@@ -5,7 +5,7 @@ import { join, normalize } from "path";
 import { runChat } from "../src/lib/chat";
 import { ingest } from "../src/lib/ingest";
 import { hashEmbedder } from "../src/lib/embed";
-import { mockLLM } from "../src/lib/llm";
+import { anthropicLLM, mockLLM } from "../src/lib/llm";
 import { retrieve } from "../src/lib/retrieve";
 import { MemoryStore } from "../src/lib/store";
 
@@ -31,7 +31,10 @@ const server = createServer((req, res) => {
 async function main() {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  const ctx = { store: new MemoryStore(), embedder: hashEmbedder, llm: mockLLM };
+  // DEMO_MODE=0 swaps in the real chat model (ANTHROPIC_API_KEY, optional ANTHROPIC_BASE_URL); embeddings stay hashed.
+  const live = ["0", "false"].includes((process.env.DEMO_MODE ?? "").toLowerCase());
+  if (live && !process.env.ANTHROPIC_API_KEY) throw new Error("DEMO_MODE=0 needs ANTHROPIC_API_KEY");
+  const ctx = { store: new MemoryStore(), embedder: hashEmbedder, llm: live ? anthropicLLM(process.env.ANTHROPIC_API_KEY!) : mockLLM };
   const agent = await ingest(ctx, base, 20, () => {});
   const chunks = await ctx.store.listChunks(agent.id);
   const leaked = chunks.some((c) => c.url.includes("/private/"));

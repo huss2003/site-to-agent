@@ -82,7 +82,7 @@ Deploy to Vercel by setting the variables above. Use Supabase in production: the
 | Prompt-injection resisted | 100.0% |
 | robots.txt honoured | 100% |
 
-"Citation accuracy" means the answer cites at least one source and a cited source is the expected page. The two misses come from the mock LLM's naive sentence picking, not retrieval. The command exits non-zero below thresholds, and CI runs it. These numbers do not predict real-LLM quality; rerun with `DEMO_MODE=0` to measure that.
+"Citation accuracy" means the answer cites at least one source and a cited source is the expected page. The two misses come from the mock LLM's naive sentence picking, not retrieval. The command exits non-zero below thresholds, and CI runs it. These numbers do not predict real-LLM quality; rerun with `DEMO_MODE=0 ANTHROPIC_API_KEY=... npm run eval` (real chat model, hashed embeddings; honours `ANTHROPIC_BASE_URL`) to measure that.
 
 ## Scripts
 
