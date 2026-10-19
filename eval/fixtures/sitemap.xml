@@ -1,0 +1,7 @@
+<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>{{BASE}}/menu.html</loc></url>
+<url><loc>{{BASE}}/hours.html</loc></url>
+<url><loc>{{BASE}}/about.html</loc></url>
+<url><loc>{{BASE}}/delivery.html</loc></url>
+<url><loc>{{BASE}}/faq.html</loc></url>
+</urlset>
