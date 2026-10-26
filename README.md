@@ -2,6 +2,8 @@
 
 **Paste a business website URL. Get a grounded chat agent trained on that site in about a minute, with inline citations and an embeddable widget.**
 
+**Demo video (2 min):** [docs/demo-video.mp4](docs/demo-video.mp4) covers the problem, architecture, evaluation and outcome. It is narrated with a text-to-speech voice.
+
 ![license](https://img.shields.io/badge/license-MIT-blue) ![stack](https://img.shields.io/badge/Next.js-14-black) ![mode](https://img.shields.io/badge/runs%20with-zero%20keys-green)
 
 Site-to-Agent crawls a site (sitemap first, then BFS, honouring `robots.txt`), extracts the main content with Mozilla Readability, chunks and embeds it, and serves a RAG chat agent that answers **only** from that content. Every claim carries a `[n]` citation that links back to the source page, and when the site does not contain the answer the agent says "I don't know" instead of guessing.
